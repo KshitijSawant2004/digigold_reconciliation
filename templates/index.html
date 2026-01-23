@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DigiGold Reconciliation - Finfinity</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #0f4d47 0%, #1a5f5a 50%, #0d3a36 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(29, 209, 161, 0.03) 2px,
+                    rgba(29, 209, 161, 0.03) 4px
+                );
+            pointer-events: none;
+        }
+        .container {
+            background: rgba(15, 40, 38, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(29, 209, 161, 0.1);
+            padding: 50px;
+            max-width: 700px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            border: 1px solid rgba(29, 209, 161, 0.15);
+        }
+        h1 {
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        h1 .highlight {
+            color: #1dd1a1;
+        }
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 40px;
+            font-size: 16px;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+        .file-box {
+            margin: 24px 0;
+            padding: 28px;
+            border: 2px solid rgba(29, 209, 161, 0.3);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(29, 209, 161, 0.02);
+            position: relative;
+            overflow: hidden;
+        }
+        .file-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(29, 209, 161, 0.1), transparent);
+            transition: left 0.3s ease;
+        }
+        .file-box:hover {
+            background: rgba(29, 209, 161, 0.08);
+            border-color: rgba(29, 209, 161, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(29, 209, 161, 0.15);
+        }
+        .file-box:hover::before {
+            left: 100%;
+        }
+        .file-box input {
+            display: none;
+        }
+        .file-box label {
+            cursor: pointer;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+        .file-name {
+            margin-top: 12px;
+            color: #1dd1a1;
+            font-weight: 600;
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        .file-label {
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.95);
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }
+        button {
+            width: 100%;
+            padding: 16px;
+            margin-top: 40px;
+            background: linear-gradient(135deg, #1dd1a1 0%, #15a085 100%);
+            color: #0f2f2c;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: 0 8px 24px rgba(29, 209, 161, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        button:hover::before {
+            width: 400px;
+            height: 400px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(29, 209, 161, 0.4);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 30px;
+        }
+        .spinner {
+            border: 3px solid rgba(29, 209, 161, 0.2);
+            border-top: 3px solid #1dd1a1;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 15px;
+        }
+        .error {
+            background: rgba(220, 53, 69, 0.1);
+            color: #ff6b6b;
+            padding: 18px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            font-weight: 500;
+        }
+        .success {
+            background: rgba(29, 209, 161, 0.1);
+            color: #1dd1a1;
+            padding: 18px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            border: 1px solid rgba(29, 209, 161, 0.3);
+            font-weight: 500;
+        }
+        .info {
+            background: rgba(29, 209, 161, 0.05);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 24px;
+            border-radius: 8px;
+            margin-top: 32px;
+            font-size: 14px;
+            line-height: 1.8;
+            border: 1px solid rgba(29, 209, 161, 0.2);
+        }
+        .info strong {
+            color: #1dd1a1;
+            font-weight: 700;
+        }
+        .check { 
+            color: #1dd1a1;
+            margin-right: 6px;
+        }
+        .info br {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Reconcilation <span class="highlight">Dashboard</span></h1>
+        <p class="subtitle">DigiGold Reconciliation </p>
+
+        <form id="form">
+            <!-- File 1 -->
+            <div class="file-box">
+                <span class="file-label">Finfinity Data</span>
+                <label for="ks_file">
+                    Click to upload or drag file<br>
+                    <span class="file-name" id="ks_name">No file selected</span>
+                </label>
+                <input type="file" id="ks_file" name="ks_file" accept=".xlsx">
+            </div>
+
+            <!-- File 2 -->
+            <div class="file-box">
+                <span class="file-label">Cashfree Data</span>
+                <label for="cashfree_file">
+                    Click to upload or drag file<br>
+                    <span class="file-name" id="cashfree_name">No file selected</span>
+                </label>
+                <input type="file" id="cashfree_file" name="cashfree_file" accept=".xlsx">
+            </div>
+
+            <!-- File 3 -->
+            <div class="file-box">
+                <span class="file-label">Augmont Data</span>
+                <label for="augmont_file">
+                    Click to upload or drag file<br>
+                    <span class="file-name" id="augmont_name">No file selected</span>
+                </label>
+                <input type="file" id="augmont_file" name="augmont_file" accept=".xlsx">
+            </div>
+
+            <button type="submit" id="btn">▶ Start Reconciliation</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing your files... Please wait</p>
+        </div>
+
+        <div class="error" id="error"></div>
+        <div class="success" id="success"></div>
+
+        <div class="info">
+            <strong>Required Columns:</strong><br>
+            <span class="check">✓</span> <strong>KS file:</strong> "Merchant Transaction ID" and "Order Id"<br>
+            <span class="check">✓</span> <strong>Cashfree:</strong> "Order Id"<br>
+            <span class="check">✓</span> <strong>Augmont:</strong> "Merchant Transaction Id"<br>
+            <br>
+            <strong>Output Files:</strong> 3 sheets with reconciliation results, missing transactions, and summary
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('form');
+        const btn = document.getElementById('btn');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const success = document.getElementById('success');
+
+        // File selection
+        ['ks_file', 'cashfree_file', 'augmont_file'].forEach(id => {
+            document.getElementById(id).addEventListener('change', (e) => {
+                const name = e.target.files[0]?.name || 'No file selected';
+                document.getElementById(id.replace('_file', '_name')).textContent = name;
+            });
+        });
+
+        // Submit
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Validate files are selected
+            const ks_file = document.getElementById('ks_file').files[0];
+            const cashfree_file = document.getElementById('cashfree_file').files[0];
+            const augmont_file = document.getElementById('augmont_file').files[0];
+            
+            if (!ks_file || !cashfree_file || !augmont_file) {
+                error.innerHTML = '<strong>Error:</strong> Please upload all 3 files';
+                error.style.display = 'block';
+                return;
+            }
+            
+            error.style.display = 'none';
+            success.style.display = 'none';
+
+            const formData = new FormData(form);
+
+            btn.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/reconcile', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'reconciliation_report.xlsx';
+                    a.click();
+                    
+                    success.innerHTML = '<strong>✓ Report downloaded successfully!</strong><br><small>Contains: Reconciliation + Status Analysis (7 sheets)</small>';
+                    success.style.display = 'block';
+                    form.reset();
+                    document.getElementById('ks_name').textContent = 'No file selected';
+                    document.getElementById('cashfree_name').textContent = 'No file selected';
+                    document.getElementById('augmont_name').textContent = 'No file selected';
+                } else {
+                    const data = await response.json();
+                    error.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                    error.style.display = 'block';
+                }
+            } catch (err) {
+                error.innerHTML = `<strong>Error:</strong> ${err.message}`;
+                error.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
