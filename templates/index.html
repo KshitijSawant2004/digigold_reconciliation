@@ -1,21 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html style="height: 100%; overflow-y: auto;">
 <head>
     <title>DigiGold Reconciliation - Finfinity</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { height: 100%; overflow-y: auto; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             background: linear-gradient(135deg, #0f4d47 0%, #1a5f5a 50%, #0d3a36 100%);
+            background-attachment: fixed;
             min-height: 100vh;
+            padding: 40px 20px;
+            position: relative;
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 20px;
-            position: relative;
-            overflow: hidden;
+            align-items: flex-start;
         }
         body::before {
             content: '';
@@ -236,11 +237,11 @@
             <!-- File 1 -->
             <div class="file-box">
                 <span class="file-label">Finfinity Data</span>
-                <label for="ks_file">
+                <label for="finfinity_file">
                     Click to upload or drag file<br>
-                    <span class="file-name" id="ks_name">No file selected</span>
+                    <span class="file-name" id="finfinity_name">No file selected</span>
                 </label>
-                <input type="file" id="ks_file" name="ks_file" accept=".xlsx">
+                <input type="file" id="finfinity_file" name="finfinity_file" accept=".xlsx">
             </div>
 
             <!-- File 2 -->
@@ -273,15 +274,6 @@
 
         <div class="error" id="error"></div>
         <div class="success" id="success"></div>
-
-        <div class="info">
-            <strong>Required Columns:</strong><br>
-            <span class="check">✓</span> <strong>KS file:</strong> "Merchant Transaction ID" and "Order Id"<br>
-            <span class="check">✓</span> <strong>Cashfree:</strong> "Order Id"<br>
-            <span class="check">✓</span> <strong>Augmont:</strong> "Merchant Transaction Id"<br>
-            <br>
-            <strong>Output Files:</strong> 3 sheets with reconciliation results, missing transactions, and summary
-        </div>
     </div>
 
     <script>
@@ -292,7 +284,7 @@
         const success = document.getElementById('success');
 
         // File selection
-        ['ks_file', 'cashfree_file', 'augmont_file'].forEach(id => {
+        ['finfinity_file', 'cashfree_file', 'augmont_file'].forEach(id => {
             document.getElementById(id).addEventListener('change', (e) => {
                 const name = e.target.files[0]?.name || 'No file selected';
                 document.getElementById(id.replace('_file', '_name')).textContent = name;
@@ -304,11 +296,11 @@
             e.preventDefault();
             
             // Validate files are selected
-            const ks_file = document.getElementById('ks_file').files[0];
+            const finfinity_file = document.getElementById('finfinity_file').files[0];
             const cashfree_file = document.getElementById('cashfree_file').files[0];
             const augmont_file = document.getElementById('augmont_file').files[0];
             
-            if (!ks_file || !cashfree_file || !augmont_file) {
+            if (!finfinity_file || !cashfree_file || !augmont_file) {
                 error.innerHTML = '<strong>Error:</strong> Please upload all 3 files';
                 error.style.display = 'block';
                 return;
@@ -333,13 +325,13 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'reconciliation_report.xlsx';
+                    a.download = 'reconciliation_output.xlsx';
                     a.click();
                     
-                    success.innerHTML = '<strong>✓ Report downloaded successfully!</strong><br><small>Contains: Reconciliation + Status Analysis (7 sheets)</small>';
+                    success.innerHTML = '<strong>✓ Reconciliation workbook downloaded successfully!</strong><br><small>Excel file contains: FINFINITY + CASHFREE + AUGMONT + ALARMED_RECORDS + Action-based sheets + SUMMARY</small>';
                     success.style.display = 'block';
                     form.reset();
-                    document.getElementById('ks_name').textContent = 'No file selected';
+                    document.getElementById('finfinity_name').textContent = 'No file selected';
                     document.getElementById('cashfree_name').textContent = 'No file selected';
                     document.getElementById('augmont_name').textContent = 'No file selected';
                 } else {
