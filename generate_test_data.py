@@ -152,8 +152,8 @@ augmont_df = pd.DataFrame(augmont_data)
 print("Generating test datasets...")
 print("=" * 60)
 
-finfinity_df.to_excel('test_ks.xlsx', index=False, engine='openpyxl')
-print(f"✓ Created test_ks.xlsx with {len(finfinity_df)} Finfinity records")
+finfinity_df.to_excel('test_finfinity.xlsx', index=False, engine='openpyxl')
+print(f"✓ Created test_finfinity.xlsx with {len(finfinity_df)} Finfinity records")
 print(f"  Status distribution: {finfinity_df['Order Status'].value_counts().to_dict()}")
 
 cashfree_df.to_excel('test_cashfree.xlsx', index=False, engine='openpyxl')

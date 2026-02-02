@@ -41,7 +41,7 @@ Or connect your GitHub repository to Vercel for automatic deployments.
 
 ## File Requirements
 
-### Finfinity File (KS)
+### Finfinity File
 - `Order Id` - Required
 - `Merchant Transaction ID` - Required
 - `Order Status` - Optional (for status analysis)

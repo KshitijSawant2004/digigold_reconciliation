@@ -182,12 +182,60 @@ def reconcile_files(finfinity_file, cashfree_file, augmont_file):
                                      key=lambda x: alarmed_with_status[alarmed_with_status["Action_Required"] == x]["Priority"].iloc[0],
                                      reverse=True)
 
+    # === Create Complete Finfinity View ===
+    # Merge all Finfinity records with statuses from all systems
+    complete_finfinity = fin_working.copy()
+    
+    # Add Finfinity status
+    if "Order Status" in finfinity_df.columns:
+        complete_finfinity["Finfinity_Status"] = complete_finfinity["Order Status"]
+    else:
+        complete_finfinity["Finfinity_Status"] = "MISSING"
+    
+    # Add Cashfree status
+    if "Transaction Status" in cashfree_df.columns:
+        cf_status_map = cashfree_df[["Order Id", "Transaction Status"]].drop_duplicates(subset=["Order Id"])
+        cf_status_map["_ord_clean"] = cf_status_map["Order Id"].apply(clean_key)
+        complete_finfinity = complete_finfinity.merge(
+            cf_status_map[["_ord_clean", "Transaction Status"]].rename(columns={"Transaction Status": "Cashfree_Status"}),
+            on="_ord_clean", how="left"
+        )
+        complete_finfinity["Cashfree_Status"] = complete_finfinity["Cashfree_Status"].fillna("MISSING")
+    else:
+        complete_finfinity["Cashfree_Status"] = "MISSING"
+    
+    # Add Augmont status
+    if "Transaction Status" in augmont_df.columns:
+        aug_status_map = augmont_df[["Merchant Transaction Id", "Transaction Status"]].drop_duplicates(subset=["Merchant Transaction Id"])
+        aug_status_map["_mtx_clean"] = aug_status_map["Merchant Transaction Id"].apply(clean_key)
+        complete_finfinity = complete_finfinity.merge(
+            aug_status_map[["_mtx_clean", "Transaction Status"]].rename(columns={"Transaction Status": "Augmont_Status"}),
+            on="_mtx_clean", how="left"
+        )
+        complete_finfinity["Augmont_Status"] = complete_finfinity["Augmont_Status"].fillna("MISSING")
+    else:
+        complete_finfinity["Augmont_Status"] = "MISSING"
+    
+    # Apply decision table to ALL records
+    complete_finfinity[["Decision_Category", "Action_Required", "Priority"]] = complete_finfinity.apply(
+        lambda row: pd.Series(classify_by_decision_table(
+            row.get("Finfinity_Status", "MISSING"),
+            row.get("Cashfree_Status", "MISSING"),
+            row.get("Augmont_Status", "MISSING")
+        )),
+        axis=1
+    )
+    
+    # Clean up temp columns
+    complete_finfinity = complete_finfinity.drop(columns=["_ord_clean", "_mtx_clean"], errors='ignore')
+
     # === Create SUMMARY Sheet ===
     total_finfinity = len(finfinity_df)
     total_alarmed = len(alarmed_records)
+    total_reconciled = len(complete_finfinity[complete_finfinity["Action_Required"] == "NO ACTION"])
 
     # Count records by action category
-    action_summary = alarmed_with_status.groupby("Action_Required").agg({
+    action_summary = complete_finfinity.groupby("Action_Required").agg({
         "Order Id": "count",
         "Priority": "first"
     }).reset_index()
@@ -196,9 +244,21 @@ def reconcile_files(finfinity_file, cashfree_file, augmont_file):
 
     # Create overall summary
     summary_df = pd.DataFrame({
-        "Metric": ["Total Finfinity Records", "Fully Reconciled (Est.)", "Alarmed Records (Needs Review)"],
-        "Count": [total_finfinity, total_finfinity - total_alarmed, total_alarmed]
+        "Metric": ["Total Finfinity Records", "Fully Reconciled", "Needs Review/Action"],
+        "Count": [total_finfinity, total_reconciled, total_finfinity - total_reconciled]
     })
+
+    # Create status combination column for grouping
+    complete_finfinity["Status_Combination"] = (
+        "FIN_" + complete_finfinity["Finfinity_Status"].astype(str) + 
+        "_CF_" + complete_finfinity["Cashfree_Status"].astype(str) + 
+        "_AUG_" + complete_finfinity["Augmont_Status"].astype(str)
+    )
+    
+    # Get unique status combinations and sort by count (most frequent first)
+    status_combo_counts = complete_finfinity.groupby("Status_Combination").size().reset_index(name='count')
+    status_combo_counts = status_combo_counts.sort_values('count', ascending=False)
+    status_combinations = status_combo_counts["Status_Combination"].tolist()
 
     # === Create Single Excel Workbook ===
     output = BytesIO()
@@ -208,46 +268,49 @@ def reconcile_files(finfinity_file, cashfree_file, augmont_file):
         
         # 2. ACTION_SUMMARY - Breakdown by action required
         action_summary[["Action Required", "Count"]].to_excel(writer, sheet_name='ACTION_SUMMARY', index=False)
+        
+        # 3. STATUS_COMBINATION_SUMMARY - Breakdown by status combinations
+        status_summary = complete_finfinity.groupby(["Finfinity_Status", "Cashfree_Status", "Augmont_Status"]).agg({
+            "Order Id": "count"
+        }).reset_index()
+        status_summary.columns = ["Finfinity Status", "Cashfree Status", "Augmont Status", "Count"]
+        status_summary = status_summary.sort_values("Count", ascending=False)
+        status_summary.to_excel(writer, sheet_name='STATUS_COMBINATIONS', index=False)
 
-        # 3. FINFINITY - Full uploaded file
-        finfinity_df.to_excel(writer, sheet_name='FINFINITY_RAW', index=False)
+        # 4. COMPLETE_FINFINITY - All Finfinity records with matching flags and statuses
+        complete_finfinity_display = complete_finfinity.drop(columns=["Status_Combination"], errors='ignore')
+        complete_finfinity_display.to_excel(writer, sheet_name='COMPLETE_FINFINITY', index=False)
 
-        # 4. CASHFREE - Full uploaded file
-        cashfree_df.to_excel(writer, sheet_name='CASHFREE_RAW', index=False)
+        # 5. MISSING_IN_CASHFREE - Finfinity records not in Cashfree
+        missing_cf = complete_finfinity[complete_finfinity["In Cashfree?"] == "NO"].copy()
+        missing_cf = missing_cf.drop(columns=["Status_Combination"], errors='ignore')
+        missing_cf.to_excel(writer, sheet_name='MISSING_IN_CASHFREE', index=False)
 
-        # 5. AUGMONT - Full uploaded file
-        augmont_df.to_excel(writer, sheet_name='AUGMONT_RAW', index=False)
+        # 6. MISSING_IN_AUGMONT - Finfinity records not in Augmont
+        missing_aug = complete_finfinity[complete_finfinity["In Augmont?"] == "NO"].copy()
+        missing_aug = missing_aug.drop(columns=["Status_Combination"], errors='ignore')
+        missing_aug.to_excel(writer, sheet_name='MISSING_IN_AUGMONT', index=False)
 
-        # 6. ALL_ALARMED_RECORDS - All records that need review
-        alarmed_display = alarmed_with_status[[
-            "Order Id", "Merchant Transaction ID", 
-            "In Cashfree?", "In Augmont?",
-            "Finfinity_Status", "Cashfree_Status", "Augmont_Status",
-            "Decision_Category", "Action_Required", "Priority"
-        ]].copy()
-        alarmed_display.to_excel(writer, sheet_name='ALL_ALARMED_RECORDS', index=False)
+        # 7. MISSING_IN_BOTH - Finfinity records missing in both Cashfree and Augmont
+        missing_both = complete_finfinity[(complete_finfinity["In Cashfree?"] == "NO") & (complete_finfinity["In Augmont?"] == "NO")].copy()
+        missing_both = missing_both.drop(columns=["Status_Combination"], errors='ignore')
+        missing_both.to_excel(writer, sheet_name='MISSING_IN_BOTH', index=False)
 
-        # 7-N. Action-specific sheets
-        for action in action_categories_sorted:
-            action_data = alarmed_with_status[alarmed_with_status["Action_Required"] == action].copy()
+        # 8-N. Status-combination-specific sheets (based on complete Finfinity data)
+        for combo in status_combinations:
+            combo_data = complete_finfinity[complete_finfinity["Status_Combination"] == combo].copy()
+            combo_data = combo_data.drop(columns=["Status_Combination"], errors='ignore')
             
-            # Select display columns
-            display_cols = [
-                "Order Id", "Merchant Transaction ID",
-                "In Cashfree?", "In Augmont?",
-                "Finfinity_Status", "Cashfree_Status", "Augmont_Status",
-                "Decision_Category", "Action_Required"
-            ]
-            available_cols = [col for col in display_cols if col in action_data.columns]
+            # Create readable sheet name from combination (max 31 chars)
+            sheet_name = combo[:31]
             
-            # Create safe sheet name (max 31 chars)
-            sheet_name = action.replace("/", "_").replace(" ", "_")[:31]
-            
-            if not action_data.empty:
-                action_data[available_cols].to_excel(writer, sheet_name=sheet_name, index=False)
-            else:
-                # Empty sheet with headers
-                pd.DataFrame(columns=available_cols).to_excel(writer, sheet_name=sheet_name, index=False)
+            if not combo_data.empty:
+                combo_data.to_excel(writer, sheet_name=sheet_name, index=False)
+        
+        # Additional raw data sheets at the end
+        finfinity_df.to_excel(writer, sheet_name='RAW_FINFINITY', index=False)
+        cashfree_df.to_excel(writer, sheet_name='RAW_CASHFREE', index=False)
+        augmont_df.to_excel(writer, sheet_name='RAW_AUGMONT', index=False)
 
     output.seek(0)
     return output, None
