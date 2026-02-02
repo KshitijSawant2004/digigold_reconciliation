@@ -17,6 +17,18 @@ app.config['ENV'] = os.getenv('FLASK_ENV', 'production')
 if app.config['ENV'] == 'development':
     app.config['DEBUG'] = True
 
+def read_file(file_obj):
+    """Read file based on its extension (CSV or XLSX)"""
+    filename = file_obj.filename if hasattr(file_obj, 'filename') else str(file_obj)
+    
+    if filename.endswith('.csv'):
+        return pd.read_csv(file_obj)
+    elif filename.endswith('.xlsx'):
+        return pd.read_excel(file_obj)
+    else:
+        raise ValueError(f"Unsupported file format: {filename}. Only .csv and .xlsx are supported.")
+
+
 def clean_key(value):
     """Clean and normalize keys"""
     if pd.isna(value):
@@ -91,10 +103,10 @@ def classify_by_decision_table(fin_status, cf_status, aug_status):
 
 def reconcile_files(finfinity_file, cashfree_file, augmont_file):
     """Main reconciliation logic - creates single Excel workbook with all sheets"""
-    # Read files
-    finfinity_df = pd.read_excel(finfinity_file)
-    cashfree_df = pd.read_excel(cashfree_file)
-    augmont_df = pd.read_excel(augmont_file)
+    # Read files (supports both CSV and XLSX)
+    finfinity_df = read_file(finfinity_file)
+    cashfree_df = read_file(cashfree_file)
+    augmont_df = read_file(augmont_file)
 
     # Validate columns
     if "Merchant Transaction ID" not in finfinity_df.columns:
@@ -337,10 +349,10 @@ def reconcile():
         if not all([f.filename for f in [finfinity_file, cashfree_file, augmont_file]]):
             return jsonify({'error': 'Invalid file upload'}), 400
         
-        # Check file extensions
+        # Check file extensions (accept both CSV and XLSX)
         for f in [finfinity_file, cashfree_file, augmont_file]:
-            if not f.filename.endswith('.xlsx'):
-                return jsonify({'error': f'{f.filename} must be .xlsx file'}), 400
+            if not (f.filename.endswith('.xlsx') or f.filename.endswith('.csv')):
+                return jsonify({'error': f'{f.filename} must be .xlsx or .csv file'}), 400
         
         # Process reconciliation
         result, error = reconcile_files(finfinity_file, cashfree_file, augmont_file)

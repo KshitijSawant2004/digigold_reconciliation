@@ -4,12 +4,13 @@ Production-ready web application for reconciling DigiGold transactions across Fi
 
 ## Features
 
-- **Upload 3 Excel Files**: Finfinity, Cashfree, and Augmont transaction exports
+- **Upload Files**: Supports both **.xlsx** and **.csv** formats for all three files
+- **Multiple Sources**: Finfinity, Cashfree, and Augmont transaction exports
 - **Automated Reconciliation**: Matches transactions across systems using Order IDs and Merchant Transaction IDs
 - **Comprehensive Output**: Single Excel workbook with:
   - Full raw data from all 3 sources
   - Alarmed records (missing from any system)
-  - 8 mismatch classification sheets
+  - Status-combination sheets for detailed analysis
   - Summary dashboard
 - **Production Ready**: Error handling, validation, health checks
 
@@ -40,6 +41,8 @@ vercel
 Or connect your GitHub repository to Vercel for automatic deployments.
 
 ## File Requirements
+
+**Supported Formats:** `.xlsx` or `.csv` for all files
 
 ### Finfinity File
 - `Order Id` - Required
